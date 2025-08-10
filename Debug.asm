@@ -9,6 +9,10 @@
 ;|	DEBUG_PrintHexDEHL 	- print a 32bit number in DE:HL as hex								|
 ;|	DEBUG_PrintHexHL	- Prints the number in HL as hex									|
 ;|	DEBUG_PrintHexA		- Prints the number in A as hex										|
+;|	DEBUG_PrintA_0		- Prints the decimal value in A with leading 0's					|
+;|	DEBUG_PrintA		- Prints the decimal value in A without leading 0's					|
+;|	DEBUG_PrintL		- Prints the decimal value in L										|
+;|	DEBUG_PrintHL		- Prints the decimal value in HL									|
 ;|	DEBUG_PrintDEHL		- Print the number in DE:HL as decimal								|
 ;\------------------------------------------------------------------------------------------/
 
@@ -88,7 +92,9 @@ DEBUG_ClearScreen:
 ;	None
 ;--------------------------------------------------------------------------------------------
 DEBUG_PrintChar:
+							push	af
 							rst		&10
+							pop		af
 							ret
 
 ;--------------------------------------------------------------------------------------------
@@ -107,9 +113,7 @@ DEBUG_PrintMessage:
 							inc		hl
 							rlca
 							srl		a
-							push	af
 							call	DEBUG_PrintChar
-							pop		af
 							jr		nc, @DPM_Loop
 
 							; Return
@@ -186,6 +190,75 @@ DEBUG_PrintHexA:
 							ret
 
 ;--------------------------------------------------------------------------------------------
+; Prints a nunmber as decimal with leading 0's
+;--------------------------------------------------------------------------------------------
+; INPUT:
+;	A - 8 bit number to print as decimal
+; OUTPUT:
+;	None
+;--------------------------------------------------------------------------------------------
+DEBUG_PrintA_0:				
+							; Setup the values	
+							ld		l, a
+							ld		a, "0"
+
+							; Call the main print
+							jp		DEBUG_PrintL
+
+;--------------------------------------------------------------------------------------------
+; Prints a nunmber as decimal with no leading zeros
+;--------------------------------------------------------------------------------------------
+; INPUT:
+;	A - 8 bit number to print as decimal
+; OUTPUT:
+;	None
+;--------------------------------------------------------------------------------------------
+DEBUG_PrintA:				
+							; Setup the values	
+							ld		l, a
+							xor		a
+
+							; Call the main print
+							jp		DEBUG_PrintL
+							
+;--------------------------------------------------------------------------------------------
+; Prints a nunmber as decimal
+;--------------------------------------------------------------------------------------------
+; INPUT:
+;	L - 8 bit number to print as decimal
+;	A - 0 for no leading digits, else the character to display (usually 0 or space)
+; OUTPUT:
+;	None
+;--------------------------------------------------------------------------------------------
+DEBUG_PrintL:					
+							; Clear the higher bit of a 32 bit number		
+							exx
+							ld		hl, &0000
+							exx
+							ld		h, 0
+
+							; Call into the main number print
+							jp		_DEBUG_Print8Bit
+							
+;--------------------------------------------------------------------------------------------
+; Prints a nunmber as decimal
+;--------------------------------------------------------------------------------------------
+; INPUT:
+;	HL - 16 bit number to print as decimal
+;	A - 0 for no leading digits, else the character to display (usually 0 or space)
+; OUTPUT:
+;	None
+;--------------------------------------------------------------------------------------------
+DEBUG_PrintHL:					
+							; Clear the higher bit of a 32 bit number		
+							exx
+							ld		hl, &0000
+							exx
+
+							; Call into the main number print
+							jp		_DEBUG_Print16Bit
+
+;--------------------------------------------------------------------------------------------
 ; Prints a nunmber as decimal
 ;--------------------------------------------------------------------------------------------
 ; INPUT:
@@ -231,7 +304,7 @@ DEBUG_PrintDEHL:
 							exx
 							ld		de, &86a0						; 100,000 / 65536
 							call	_DEBUG_CalcDigit
-
+_DEBUG_Print16Bit:
 							; 10,000
 							exx
 							ld		de, &0000						; 10,000 % 65536
@@ -241,21 +314,21 @@ DEBUG_PrintDEHL:
 
 							; 1,000
 							exx
-							ld		de, &0000						; 10,000 % 65536
+							ld		de, &0000						; 1,000 % 65536
 							exx
 							ld		de, &03e8						; 1,000 / 65536
 							call	_DEBUG_CalcDigit
-
+_DEBUG_Print8Bit:
 							; 100
 							exx
-							ld		de, &0000						; 10,000 % 65536
+							ld		de, &0000						; 100 % 65536
 							exx
 							ld		de, &0064						; 100 / 65536
 							call	_DEBUG_CalcDigit
 
 							; 10
 							exx
-							ld		de, &0000						; 10,000 % 65536
+							ld		de, &0000						; 10 % 65536
 							exx
 							ld		de, &000a						; 10 / 65536
 							call	_DEBUG_CalcDigit

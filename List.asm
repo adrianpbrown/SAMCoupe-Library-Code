@@ -3,7 +3,8 @@
 ;|------------------------------------------------------------------------------------------|
 ;| PUBLIC FUNCTIONS:																		|
 ;|	LIST_Init 			- Initialise the list header structure								|
-;|	LIST_Add			- Add a node into the list											|
+;|	LIST_AddBefore		- Add a node before another node in the list						|
+;|	LIST_AddAfter		- Add a node after another node in the list							|
 ;|	LIST_AddHead		- Add a node at the head of the list								|
 ;|	LIST_AddTail		- Add a node at the tail of the list								|
 ;|	LIST_Remove			- Remove a node from the list it is in								|
@@ -13,12 +14,14 @@
 ;|	LIST_GetTail		- Get the tail node of a list										|
 ;|	LIST_GetNext		- Get the next node of a node										|
 ;|	LIST_GetPrev		- Get the previous node of a node									|
+;|	LIST_IsEndOfList	- Checks if this is the end of the list								|
 ;|																							|
 ;| PUBLIC MACROS:																			|
-;|	MACRO_LISTHDR_GetHead	- Get the head node of a list									|
-;|	MACRO_LISTHDR_GetTail	- Get the tail node of a list									|
-;|	MACRO_LISTNODE_GetNext	- Get the next node of a node									|
-;|	MACRO_LISTNODE_GetPrev	- Get the previous node of a node								|
+;|	MACRO_LIST_GetHead	- Get the head node of a list										|
+;|	MACRO_LIST_GetTail	- Get the tail node of a list										|
+;|	MACRO_LIST_GetNext	- Get the next node of a node										|
+;|	MACRO_LIST_GetPrev	- Get the previous node of a node									|
+;|	MACRO_LIST_IsEndOfList 	- Checks if this is the end of the list							|
 ;\------------------------------------------------------------------------------------------/
 
 ;--------------------------------------------------------------------------------------------
@@ -47,7 +50,7 @@ Prev:						rs		2
 ; OUTPUT:
 ;	HL = Head Node
 ;--------------------------------------------------------------------------------------------
-MACRO_LISTHDR_GetHead:		MACRO
+MACRO_LIST_GetHead:			MACRO
 							ld		l, (ix + LISTHDR.Head + 0)
 							ld		h, (ix + LISTHDR.Head + 1)
 							ENDM
@@ -60,7 +63,7 @@ MACRO_LISTHDR_GetHead:		MACRO
 ; OUTPUT:
 ;	HL = Tail Node
 ;--------------------------------------------------------------------------------------------
-MACRO_LISTHDR_GetTail:		MACRO
+MACRO_LIST_GetTail:			MACRO
 							ld		l, (ix + LISTHDR.TailPred + 0)
 							ld		h, (ix + LISTHDR.TailPred + 1)
 							ENDM
@@ -73,7 +76,7 @@ MACRO_LISTHDR_GetTail:		MACRO
 ; OUTPUT:
 ;	HL = Next Node
 ;--------------------------------------------------------------------------------------------
-MACRO_LISTNODE_GetNext:		MACRO
+MACRO_LIST_GetNext:			MACRO
 							ld		a, (hl)
 							inc		hl
 							ld		l, (hl)
@@ -88,7 +91,7 @@ MACRO_LISTNODE_GetNext:		MACRO
 ; OUTPUT:
 ;	HL = Prev Node
 ;--------------------------------------------------------------------------------------------
-MACRO_LISTNODE_GetPrev:		MACRO
+MACRO_LIST_GetPrev:			MACRO
 							inc		hl
 							inc		hl
 							ld		a, (hl)
@@ -96,6 +99,21 @@ MACRO_LISTNODE_GetPrev:		MACRO
 							ld		l, (hl)
 							ld		h, a
 							ENDM
+
+;--------------------------------------------------------------------------------------------
+; MACRO : Checks if this is the end of the list or not
+;--------------------------------------------------------------------------------------------
+; INPUT:
+;	HL = The current place in the list
+; OUTPUT:
+;	Z Flag = Z Set if this was the end of the list else NZ
+;--------------------------------------------------------------------------------------------
+MACRO_LIST_IsEndOfList:		MACRO
+							ld		a, (hl)
+							inc		hl
+							or		(hl)
+							dec		hl
+							ENDM					
 
 ;--------------------------------------------------------------------------------------------
 ; Initialise a list header
@@ -130,17 +148,38 @@ LIST_Init:
 							ret
 
 ;--------------------------------------------------------------------------------------------
-; Add a node to the head of a list
+; Add a node before a given node
 ;--------------------------------------------------------------------------------------------
 ; INPUT:
-;	IX = List to add the node to
+;	HL = Node to add
+;	DE = Node to add before
+; OUTPUT:
+;	None
+;--------------------------------------------------------------------------------------------
+LIST_AddBefore:
+							; Get the node before
+							ex		de, hl
+							inc		hl
+							inc		hl
+							ld		a, (hl)
+							inc		hl
+							ld		h, (hl)
+							ld		l, a
+							ex		de, hl
+							jp		LIST_AddAfter
+
+;--------------------------------------------------------------------------------------------
+; Add a node after a given node
+;--------------------------------------------------------------------------------------------
+; INPUT:
 ;	HL = Node to add
 ;	DE = Node to add after
 ; OUTPUT:
 ;	None
 ;--------------------------------------------------------------------------------------------
-LIST_Add:
+LIST_AddAfter:
 							; Remember our node
+							push	bc
 							push	hl
 
 							; Get the next node of the node to add after and set the node to add to us
@@ -174,6 +213,7 @@ LIST_Add:
 							ld		a, h
 							ld		(bc), a
 
+							pop		bc
 							ret
 
 ;--------------------------------------------------------------------------------------------
@@ -188,6 +228,7 @@ LIST_Add:
 LIST_AddHead:				
 							; Preserve the node
 							push	hl
+							push	de
 
 							; First get a copy ofthe node at the head of the list
 							ld		e, (ix + LISTHDR.Head + 0)
@@ -221,6 +262,7 @@ LIST_AddHead:
 							ld		(hl), d
 
 							; We have done
+							pop		de
 							pop		hl
 							ret
 
@@ -236,6 +278,7 @@ LIST_AddHead:
 LIST_AddTail:	
 							; Preserve the node address and list
 							push	hl
+							push	de
 							push	ix
 
 							; First get a copy of whats a before the tail
@@ -273,6 +316,7 @@ LIST_AddTail:
 
 							; We have done
 							pop		ix
+							pop		de
 							pop		hl
 							ret
 
@@ -285,34 +329,36 @@ LIST_AddTail:
 ;	None
 ;--------------------------------------------------------------------------------------------
 LIST_Remove:
-						push	hl
-						
-						; Get our next node (in DE) and prev node (in HL)
-						ld		e, (hl)
-						inc		hl
-						ld		d, (hl)
-						inc		hl
-						ld		a, (hl)
-						inc		hl
-						ld		h, (hl)
-						ld		l, a
+							push	hl
+							push	de
+							
+							; Get our next node (in DE) and prev node (in HL)
+							ld		e, (hl)
+							inc		hl
+							ld		d, (hl)
+							inc		hl
+							ld		a, (hl)
+							inc		hl
+							ld		h, (hl)
+							ld		l, a
 
-						; Now set our previous node (HL) next to our next (DE)
-						ld		(hl), e
-						inc		hl
-						ld		(hl), d
-						dec		hl
+							; Now set our previous node (HL) next to our next (DE)
+							ld		(hl), e
+							inc		hl
+							ld		(hl), d
+							dec		hl
 
-						; And our next node prev (DE) to our previous (HL)
-						ex		de, hl
-						inc		hl
-						inc		hl
-						ld		(hl), e
-						inc		hl
-						ld		(hl), d
+							; And our next node prev (DE) to our previous (HL)
+							ex		de, hl
+							inc		hl
+							inc		hl
+							ld		(hl), e
+							inc		hl
+							ld		(hl), d
 
-						pop	hl
-						ret
+							pop		de
+							pop		hl
+							ret
 
 ;--------------------------------------------------------------------------------------------
 ; Remove an entry from the head of the list
@@ -323,36 +369,38 @@ LIST_Remove:
 ;	HL = Node removed (or Z Flag Set if empty)
 ;--------------------------------------------------------------------------------------------
 LIST_RemoveHead:
-						; First get a copy ofthe node at the head of the list
-						ld		l, (ix + LISTHDR.Head + 0)
-						ld		h, (ix + LISTHDR.Head + 1)
+							push	de
 
-						; Get whats next
-						ld		e, (hl)
-						inc		hl
-						ld		d, (hl)
+							; First get a copy ofthe node at the head of the list
+							ld		l, (ix + LISTHDR.Head + 0)
+							ld		h, (ix + LISTHDR.Head + 1)
 
-						; Check its not null (i.e. empty list)
-						ld		a, d
-						or		e
-						ret		z
+							; Get whats next
+							ld		e, (hl)
+							inc		hl
+							ld		d, (hl)
+							dec		hl
 
-						; This becomes the new list head
-						ld		(ix + LISTHDR.Head + 0), e
-						ld		(ix + LISTHDR.Head + 1), d
+							; Check its not null (i.e. empty list)
+							ld		a, d
+							or		e
+							jr		z, @LRH_Exit
 
-						; Now the list header becomes the next nodes previous 
-						inc		de
-						inc		de
-						ld		a, ixl
-						ld		(de), a
-						inc		de
-						ld		a, ixh
-						ld		(de), a
+							; This becomes the new list head
+							ld		(ix + LISTHDR.Head + 0), e
+							ld		(ix + LISTHDR.Head + 1), d
 
-						; Done - just sort the return
-						dec		hl
-						ret
+							; Now the list header becomes the next nodes previous 
+							inc		de
+							inc		de
+							ld		a, ixl
+							ld		(de), a
+							inc		de
+							ld		a, ixh
+							ld		(de), a
+@LRH_Exit:
+							pop		de
+							ret
 
 ;--------------------------------------------------------------------------------------------
 ; Remove an entry from the tail of the list
@@ -363,38 +411,42 @@ LIST_RemoveHead:
 ;	HL = Node removed (or Z Flag Set if empty)
 ;--------------------------------------------------------------------------------------------
 LIST_RemoveTail:
-						; First get a copy ofthe node before the tail
-						ld		l, (ix + LISTHDR.TailPred + 0)
-						ld		h, (ix + LISTHDR.TailPred + 1)
+							push	de
+							
+							; First get a copy ofthe node before the tail
+							ld		l, (ix + LISTHDR.TailPred + 0)
+							ld		h, (ix + LISTHDR.TailPred + 1)
 
-						; Get its previous
-						inc		hl
-						inc		hl
-						ld		e, (hl)
-						inc		hl
-						ld		d, (hl)
+							; Get its previous
+							inc		hl
+							inc		hl
+							ld		e, (hl)
+							inc		hl
+							ld		d, (hl)
 
-						; Check its not null (i.e. empty list)
-						ld		a, d
-						or		e
-						ret		z
+							; Check its not null (i.e. empty list)
+							ld		a, d
+							or		e
+							jr		z, @LRT_Exit
 
-						; Set our previous as the tailpred
-						ld		(ix + LISTHDR.TailPred + 0), e
-						ld		(ix + LISTHDR.TailPred + 1), d
+							; Set our previous as the tailpred
+							ld		(ix + LISTHDR.TailPred + 0), e
+							ld		(ix + LISTHDR.TailPred + 1), d
 
-						; Now the list header becomes the previous nodes next 
-						ld		a, ixl
-						ld		(de), a
-						inc		de
-						ld		a, ixh
-						ld		(de), a
+							; Now the list header becomes the previous nodes next 
+							ld		a, ixl
+							ld		(de), a
+							inc		de
+							ld		a, ixh
+							ld		(de), a
 
-						; Done - just sort the return
-						dec		hl
-						dec		hl
-						dec		hl
-						ret
+							; Done - just sort the return
+							dec		hl
+							dec		hl
+							dec		hl
+@LRT_Exit:
+							pop		de
+							ret
 
 ;--------------------------------------------------------------------------------------------
 ; Add the head of a list
@@ -405,11 +457,11 @@ LIST_RemoveTail:
 ;	HL = Head node
 ;--------------------------------------------------------------------------------------------
 LIST_GetHead:
-						; Get the head node
-						ld		l, (ix + LISTHDR.Head + 0)
-						ld		h, (ix + LISTHDR.Head + 1)
+							; Get the head node
+							ld		l, (ix + LISTHDR.Head + 0)
+							ld		h, (ix + LISTHDR.Head + 1)
 
-						ret
+							ret
 
 ;--------------------------------------------------------------------------------------------
 ; Add the tail of a list
@@ -420,11 +472,11 @@ LIST_GetHead:
 ;	HL = Tail node
 ;--------------------------------------------------------------------------------------------
 LIST_GetTail:
-						; Get the tail node
-						ld		l, (ix + LISTHDR.Tail + 0)
-						ld		h, (ix + LISTHDR.Tail + 1)
+							; Get the tail node
+							ld		l, (ix + LISTHDR.Tail + 0)
+							ld		h, (ix + LISTHDR.Tail + 1)
 
-						ret
+							ret
 							
 ;--------------------------------------------------------------------------------------------
 ; Add the next node of a node
@@ -435,13 +487,13 @@ LIST_GetTail:
 ;	HL = Next node
 ;--------------------------------------------------------------------------------------------
 LIST_GetNext:
-						; Get the next node
-						ld		a, (hl)
-						inc		hl
-						ld		h, (hl)
-						ld		l, a
-						
-						ret
+							; Get the next node
+							ld		a, (hl)
+							inc		hl
+							ld		h, (hl)
+							ld		l, a
+							
+							ret
 
 ;--------------------------------------------------------------------------------------------
 ; Add the previous node of a node
@@ -452,15 +504,32 @@ LIST_GetNext:
 ;	HL = Previous node
 ;--------------------------------------------------------------------------------------------
 LIST_GetPrev:
-						; Get the previous node
-						inc		hl
-						inc		hl
-						ld		a, (hl)
-						inc		hl
-						ld		h, (hl)
-						ld		l, a
-						
-						ret
+							; Get the previous node
+							inc		hl
+							inc		hl
+							ld		a, (hl)
+							inc		hl
+							ld		h, (hl)
+							ld		l, a
+							
+							ret
+
+;--------------------------------------------------------------------------------------------
+; Checks if this is the end of the list or not
+;--------------------------------------------------------------------------------------------
+; INPUT:
+;	HL = The current place in the list
+; OUTPUT:
+;	DE = The next node if there is one
+;	Z Flag = Z Set if this was the end of the list else NZ
+;--------------------------------------------------------------------------------------------
+LIST_IsEndOfList:
+							; Get the next node
+							ld		a, (hl)
+							inc		hl
+							or		(hl)
+							dec		hl
+							ret
 
 ;--------------------------------------------------------------------------------------------
 ; INTERNAL: Called when there is an error

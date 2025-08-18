@@ -2,7 +2,12 @@
 ;|									CLOCK: Dallas Original									|
 ;|------------------------------------------------------------------------------------------|
 ;| All the code needed to read an original Dallas Clock										|
+;|------------------------------------------------------------------------------------------|
+;| PUBLIC FUNCTIONS:																		|
+;|	DALLAS_IsPresent		- Detects if the DALLAS Clock is present on the system			|
+;|	DALLAS_ReadClock		- Reads the current date and time into a buffer					|
 ;\------------------------------------------------------------------------------------------/
+
 ;--------------------------------------------------------------------------------------------
 ; Detects if a Dallas original is present on the system
 ;--------------------------------------------------------------------------------------------
@@ -38,12 +43,12 @@ DALLAS_IsPresent:
 							ret
 
 ;--------------------------------------------------------------------------------------------
-; Reads the time from the DALLAS clock, reads in Day/Month/Year/Second/Minute/Hour
+; Reads the date + time from the DALLAS clock, reads in Day/Month/Year/Hour/Minutes/Seconds
 ;--------------------------------------------------------------------------------------------
 ; INPUT:
 ;	HL : 6 byte buffer to read into
 ; OUTPUT:
-;	None
+;	FLAGS : NZ - Clock read OK or Z - Error reading clock (Doesnt happen on DALLAS)
 ;--------------------------------------------------------------------------------------------
 DALLAS_ReadClock:
 							; First we need to pause the clock
@@ -71,7 +76,7 @@ DALLAS_ReadClock:
 
 							; Now read the S/M/H
 							ld		e, 4
-@DRC_SMHLoop:
+@DRC_HMSLoop:
 							; Read the value
 							call	_DALLAS_ReadRegister
 							call	_DALLAS_ConvertBCD
@@ -83,7 +88,7 @@ DALLAS_ReadClock:
 							; Do all the values
 							dec		e
 							dec		e
-							jp		p, @DRC_SMHLoop
+							jp		p, @DRC_HMSLoop
 
 							; Finally we can un-pause the clock
 							ld		e, 11

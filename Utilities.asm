@@ -25,6 +25,7 @@ UTIL_Mult_HL_BC:
 							; First free up HL, so really its DE * BC
 							ex		de, hl
 							ld		hl, 0
+							ld		a, 15
 
 							; First loop can be optimised
 							sla		e
@@ -34,7 +35,6 @@ UTIL_Mult_HL_BC:
 							; Yes we need to start with 
 							ld		h, b
 							ld		l, c
-							ld		a, 15
 @UMHB_Loop:
 							add		hl, hl
 							rl		e

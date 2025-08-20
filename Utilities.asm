@@ -33,6 +33,7 @@ UTIL_Mult_HL_BC:
 							; Yes we need to start with 
 							ld		h, b
 							ld		l, c
+							ld		a, 15
 @UMHB_Loop:
 							add		hl, hl
 							rl		e

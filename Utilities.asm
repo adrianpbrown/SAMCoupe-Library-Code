@@ -7,6 +7,7 @@
 ;| UTIL_Mult_HL_BC			- 16/16=>32 Multiply HL by DE returning DEHL					|
 ;| UTIL_Mult_H_E			- 8/8=>16 Multiply H by E returning in HL						|
 ;| UTIL_Div_EHL_D			- 24/8 Divide EHL by D returning EHL and remainder in A			|
+;| UTIL_Div_AHL_DE			- 24/16 Divide AHL by DE returning CDE and remainder in HL		|
 ;| UTIL_Div_AHL_CDE			- 24/24Divide AHL by CDE returning CDE and remainder in AHL		|
 ;\------------------------------------------------------------------------------------------/
 
@@ -106,6 +107,47 @@ UTIL_Div_EHL_D:
 @UDEHLD_NoOverflow:							
 							djnz	@UDEHLD_Loop
 							ret
+
+
+;--------------------------------------------------------------------------------------------
+; 24bit / 16bit = 24bit : 16bit : Divide CDE = AHL / HL - Remainder : HL
+;--------------------------------------------------------------------------------------------
+; INPUT:
+;	A:HL = Dividend
+;	DE = Divisor
+; OUTPUT:
+;	A:HL = Quotiant
+;	DE = Remainder
+;--------------------------------------------------------------------------------------------
+UTIL_Div_AHL_DE:
+							; Get HL into IX
+							push	hl
+							pop		ix
+							ld		hl, 0
+							ld		b, 24
+@UDAHLDE_Loop:
+							; Shift off top bit
+							add		ix, ix
+							rla
+
+							; Handle remainder
+							adc		hl, hl
+							jr		c, @UDAHLDE_Overflow
+							sbc		hl, de
+							jr		nc, @UDAHLDE_SetBit
+							add		hl, de
+@UDAHLDE_EndLoop:							
+							djnz	@UDAHLDE_Loop
+							ld		c, a
+							push	ix
+							pop		de
+							ret
+@UDAHLDE_Overflow:
+							or		a
+							sbc		hl, de
+@UDAHLDE_SetBit:
+							inc		ix
+							jr		@UDAHLDE_EndLoop
 
 ;--------------------------------------------------------------------------------------------
 ; 24bit / 24bit = 24bit : 24bit : Divide CDE = AHL / CDE - Remainder : AHL

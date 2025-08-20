@@ -6,6 +6,7 @@
 ;| PUBLIC FUNCTIONS																			|
 ;| UTIL_Mult_HL_BC			- 16/16=>32 Multiply HL by DE returning DEHL					|
 ;| UTIL_Mult_H_E			- 8/8=>16 Multiply H by E returning in HL						|
+;| UTIL_Div_HL_C			- 16/8 Divide HL by C returing HL and remaidner in A			|
 ;| UTIL_Div_EHL_D			- 24/8 Divide EHL by D returning EHL and remainder in A			|
 ;| UTIL_Div_AHL_DE			- 24/16 Divide AHL by DE returning CDE and remainder in HL		|
 ;| UTIL_Div_AHL_CDE			- 24/24Divide AHL by CDE returning CDE and remainder in AHL		|
@@ -79,6 +80,31 @@ UTIL_Mult_H_E:
 							add		hl, de
 @UMHE_NoCarry:
 							djnz	@UMHE_Loop
+							ret
+;--------------------------------------------------------------------------------------------
+; 16bit / 8bit = 16bit : 8bit : Divide HL = HL / C - Remainder : A
+;--------------------------------------------------------------------------------------------
+; INPUT:
+;	HL = Dividend
+;	C = Divisor
+; OUTPUT:
+;	HL = Quotiant
+;	A = Remainder
+;--------------------------------------------------------------------------------------------
+UTIL_Div_HL_C:
+							xor		a
+							ld		b, 16
+@UDHLC_Loop:
+							add		hl, hl
+							rla
+							jr		c, @UDHLC_Overflow
+							cp		c
+							jr		c, @UDHLC_Carry
+@UDHLC_Overflow:
+							sub		c
+							inc		l
+@UDHLC_Carry:
+							djnz	@UDHLC_Loop
 							ret
 
 ;--------------------------------------------------------------------------------------------
